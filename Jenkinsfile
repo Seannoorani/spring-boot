@@ -1,58 +1,36 @@
-node {
-    // reference to maven
-    // ** NOTE: This 'maven-3.6.1' Maven tool must be configured in the Jenkins Global Configuration.   
-    def mvnHome = tool 'maven-3.8.5'
+pipeline {
+    agent any
 
-    // holds reference to docker image
-    def dockerImage
-    // ip address of the docker private repository(nexus)
-    
-    def dockerRepoUrl = "localhost:8083"
-    def dockerImageName = "hello-java"
-    def dockerImageTag = "${dockerRepoUrl}/${dockerImageName}:${env.BUILD_NUMBER}"
-    
-    stage('Clone Repo') { // for display purposes
-      // Get some code from a GitHub repository
-      git 'https://github.com/raghupatik/docker-spring-boot.git'
-      // Get the Maven tool.
-      // ** NOTE: This 'maven-3.6.1' Maven tool must be configured
-      // **       in the global configuration.           
-      mvnHome = tool 'maven-3.8.5'
-    }    
-  
-    stage('Build Project') {
-      // build project via maven
-      sh "'${mvnHome}/bin/mvn' -Dmaven.test.failure.ignore clean package"
+    stages {
+        stage('Build') {
+            steps {
+                echo 'Building...'
+                // Add your build commands here
+            }
+        }
+        stage('Test') {
+            steps {
+                echo 'Testing...'
+                // Add your test commands here
+            }
+        }
+        stage('Deploy') {
+            steps {
+                echo 'Deploying...'
+                // Add your deploy commands here
+            }
+        }
     }
-	
-	stage('Publish Tests Results'){
-      parallel(
-        publishJunitTestsResultsToJenkins: {
-          echo "Publish junit Tests Results"
-		  junit '**/target/surefire-reports/TEST-*.xml'
-		  archive 'target/*.jar'
-        },
-        publishJunitTestsResultsToSonar: {
-          echo "Publishin to sonar"
-      })
-    }
-		
-    stage('Build Docker Image') {
-      // build docker image
-      sh "ls -all /var/run/docker.sock"
-      sh "mv ./target/hello*.jar ./data" 
-      
-      dockerImage = docker.build("hello-world-java")
-    }
-   
-    stage('Deploy Docker Image'){
-      
-      // deploy docker image to nexus
 
-      echo "Docker Image Tag Name: ${dockerImageTag}"
-
-      sh "docker login -u <> -p <> ${dockerRepoUrl}"
-      sh "docker tag ${dockerImageName} ${dockerImageTag}"
-      sh "docker push ${dockerImageTag}"
+    post {
+        always {
+            echo 'This will always run after the pipeline completes.'
+        }
+        success {
+            echo 'This will run only if the pipeline succeeds.'
+        }
+        failure {
+            echo 'This will run only if the pipeline fails.'
+        }
     }
 }
