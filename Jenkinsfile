@@ -22,35 +22,13 @@ pipeline {
      * TOOLS
      ***********************/
     tools {
-        jdk 'JDK-17'
-        maven 'Maven-3.9'
+        // Updated to match the name Jenkins suggested in your error log
+        maven 'maven-3.8.5'
+        // If 'JDK-17' failed, you may need to check your Global Tool Configuration 
+        // for the exact name, or use 'Default' if one isn't named.
+        jdk 'jdk-17' 
     }
 
-    /***********************
-     * PARAMETERS
-     ***********************/
-    parameters {
-        string(name: 'GIT_BRANCH', defaultValue: 'main', description: 'Git branch to build')
-        choice(name: 'ENVIRONMENT', choices: ['dev', 'qa', 'prod'], description: 'Deployment environment')
-        booleanParam(name: 'RUN_TESTS', defaultValue: true, description: 'Run unit tests')
-        booleanParam(name: 'DEPLOY', defaultValue: false, description: 'Deploy after build')
-        booleanParam(name: 'BUILD_DOCKER', defaultValue: false, description: 'Build Docker image')
-    }
-
-    /***********************
-     * ENVIRONMENT VARIABLES
-     ***********************/
-    environment {
-        APP_NAME = 'my-app'
-        MAVEN_OPTS = '-Xmx1024m'
-        DEPLOY_PATH = '/opt/apps'
-        DOCKER_IMAGE = "myorg/my-app:${BUILD_NUMBER}"
-        SSH_CREDENTIALS = 'ssh-server-key'   // Jenkins credential ID
-    }
-
-    /***********************
-     * STAGES
-     ***********************/
     stages {
 
         stage('Checkout') {
@@ -67,7 +45,8 @@ pipeline {
 
         stage('Build') {
             steps {
-                sh 'mvn clean compile'
+                // Use 'sh' for Linux/Mac or 'bat' for Windows
+                sh 'mvn clean package -DskipTests'
             }
         }
 
@@ -78,60 +57,9 @@ pipeline {
             steps {
                 sh 'mvn test'
             }
-            post {
-                always {
-                    junit 'target/surefire-reports/*.xml'
-                }
-            }
-        }
-
-        stage('Package') {
-            steps {
-                sh 'mvn package -DskipTests'
-            }
-        }
-
-        stage('Archive Artifact') {
-            steps {
-                archiveArtifacts artifacts: 'target/*.war', fingerprint: true
-            }
-        }
-
-        stage('Build Docker Image') {
-            when {
-                expression { params.BUILD_DOCKER }
-            }
-            steps {
-                sh '''
-                docker build -t ${DOCKER_IMAGE} .
-                docker images | grep my-app
-                '''
-            }
-        }
-
-        stage('Deploy') {
-            when {
-                allOf {
-                    expression { params.DEPLOY }
-                    expression { params.ENVIRONMENT != 'prod' || currentBuild.currentResult == 'SUCCESS' }
-                }
-            }
-            steps {
-                echo "Deploying to ${params.ENVIRONMENT}"
-
-                sshagent(credentials: [env.SSH_CREDENTIALS]) {
-                    sh """
-                    scp target/*.war user@server:${DEPLOY_PATH}/${APP_NAME}.war
-                    ssh user@server 'systemctl restart ${APP_NAME}'
-                    """
-                }
-            }
         }
     }
 
-    /***********************
-     * POST ACTIONS
-     ***********************/
     post {
         success {
             echo '✅ Build & Pipeline Successful'
@@ -146,7 +74,8 @@ pipeline {
         }
 
         always {
-            cleanWs()
+            archiveArtifacts artifacts: '**/target/*.jar', fingerprint: true
+            junit '**/target/surefire-reports/*.xml'
         }
     }
 }
