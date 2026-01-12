@@ -1,36 +1,32 @@
 pipeline {
     agent any
 
+    tools {
+        maven 'Maven-3.9'
+    }
+
     stages {
-        stage('Build') {
+        stage('Package') {
             steps {
-                echo 'Building...'
-                // Add your build commands here
+                sh 'mvn clean package -DskipTests'
             }
         }
-        stage('Test') {
+
+        stage('Deploy WAR') {
             steps {
-                echo 'Testing...'
-                // Add your test commands here
-            }
-        }
-        stage('Deploy') {
-            steps {
-                echo 'Deploying...'
-                // Add your deploy commands here
+                echo 'Deploying WAR...'
+                // sh 'scp target/*.war user@server:/deploy/path/'
             }
         }
     }
 
     post {
-        always {
-            echo 'This will always run after the pipeline completes.'
-        }
         success {
-            echo 'This will run only if the pipeline succeeds.'
+            archiveArtifacts artifacts: 'target/*.war'
+            echo 'Build Success'
         }
         failure {
-            echo 'This will run only if the pipeline fails.'
+            echo 'Build Failed'
         }
     }
 }
