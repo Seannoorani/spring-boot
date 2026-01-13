@@ -2,60 +2,33 @@ pipeline {
     agent any
 
     tools {
-        // Using the version your error log confirmed exists
+        // We keep Maven because your log suggested 'maven-3.8.5' works
         maven 'maven-3.8.5'
-        
-        // NOTE: You must check 'Manage Jenkins' > 'Tools' to see your exact JDK name.
-        // If 'jdk-17.0.17' still fails, try naming it 'null' or checking the tool list.
-        jdk 'jdk-17.0.17' 
     }
 
     options {
         buildDiscarder(logRotator(numToKeepStr: '5'))
         timestamps()
-        // Removed ansiColor to prevent the 'Invalid option' error
     }
 
     stages {
-        stage('Verify Environment') {
+        stage('Check Versions') {
             steps {
-                sh 'mvn -version'
+                // This will show us what version is actually on the machine
                 sh 'java -version'
+                sh 'mvn -version'
             }
         }
 
-        stage('Build') {
+        stage('Build & Test') {
             steps {
-                // Using -B (Batch mode) is best practice for Jenkins
-                sh 'mvn -B clean compile'
-            }
-        }
-
-        stage('Test') {
-            steps {
-                sh 'mvn -B test'
+                sh 'mvn -B clean install'
             }
             post {
                 always {
-                    // This will only work if you have the JUnit plugin installed
                     junit '**/target/surefire-reports/*.xml'
                 }
             }
-        }
-
-        stage('Package') {
-            steps {
-                sh 'mvn -B package -DskipTests'
-            }
-        }
-    }
-
-    post {
-        success {
-            echo 'Build Successful!'
-        }
-        failure {
-            echo 'Build Failed. Please check the logs above.'
         }
     }
 }
