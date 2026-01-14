@@ -5,13 +5,6 @@ pipeline {
         jdk 'jdk'
         maven 'maven-3.8.5'
     }
-
-    options {
-        timestamps()
-        timeout(time: 15, unit: 'MINUTES')
-        disableConcurrentBuilds()
-    }
-
     environment {
         MAVEN_OPTS = '-Xmx1024m'
     }
