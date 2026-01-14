@@ -1,12 +1,19 @@
 pipeline {
     agent any
 
+    options {
+        timestamps()
+        disableConcurrentBuilds()
+        timeout(time: 30, unit: 'MINUTES')
+    }
+
     tools {
         jdk 'jdk'
         maven 'maven-3.8.5'
     }
+
     environment {
-        MAVEN_OPTS = '-Xmx1024m'
+        MAVEN_OPTS = '-Xmx1024m -XX:+ExitOnOutOfMemoryError'
     }
 
     stages {
@@ -30,13 +37,16 @@ pipeline {
 
         stage('Build') {
             steps {
-                sh 'mvn -B clean compile'
+                sh 'mvn -B -ntp clean compile'
             }
         }
 
         stage('Test') {
+            options {
+                timeout(time: 10, unit: 'MINUTES')
+            }
             steps {
-                sh 'mvn -B test'
+                sh 'mvn -B -ntp test'
             }
             post {
                 always {
@@ -47,7 +57,7 @@ pipeline {
 
         stage('Package') {
             steps {
-                sh 'mvn -B package -DskipTests'
+                sh 'mvn -B -ntp package -DskipTests'
             }
         }
     }
@@ -58,6 +68,9 @@ pipeline {
         }
         failure {
             echo '❌ Pipeline failed'
+        }
+        aborted {
+            echo '⚠️ Pipeline aborted (timeout or Jenkins restart)'
         }
         always {
             cleanWs()
