@@ -2,13 +2,13 @@ pipeline {
     agent any
 
     tools {
-        jdk 'jdk17'
-        maven 'maven'
+        jdk 'JDK 17'
+        maven 'maven-3.8.5'
     }
 
     options {
         timestamps()
-        timeout(time: 10, unit: 'MINUTES')   // Prevents hanging builds
+        timeout(time: 10, unit: 'MINUTES')
     }
 
     stages {
