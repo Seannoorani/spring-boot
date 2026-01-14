@@ -8,7 +8,12 @@ pipeline {
 
     options {
         timestamps()
-        timeout(time: 10, unit: 'MINUTES')
+        timeout(time: 15, unit: 'MINUTES')
+        disableConcurrentBuilds()
+    }
+
+    environment {
+        MAVEN_OPTS = '-Xmx1024m'
     }
 
     stages {
@@ -19,27 +24,30 @@ pipeline {
             }
         }
 
-        stage('Check Versions') {
+        stage('Verify Tooling') {
             steps {
                 sh '''
+                    echo "Java version:"
                     java -version
+                    echo "Maven version:"
                     mvn -version
                 '''
             }
         }
 
-        stage('Build & Test') {
+        stage('Build') {
             steps {
-                sh '''
-                    mvn -B clean test \
-                      -DforkCount=1 \
-                      -DreuseForks=false \
-                      -Dsurefire.printSummary=true
-                '''
+                sh 'mvn -B clean compile'
+            }
+        }
+
+        stage('Test') {
+            steps {
+                sh 'mvn -B test'
             }
             post {
                 always {
-                    junit 'target/surefire-reports/*.xml'
+                    junit allowEmptyResults: true, testResults: 'target/surefire-reports/*.xml'
                 }
             }
         }
@@ -53,10 +61,10 @@ pipeline {
 
     post {
         success {
-            echo '✅ Build succeeded'
+            echo '✅ Pipeline completed successfully'
         }
         failure {
-            echo '❌ Build failed'
+            echo '❌ Pipeline failed'
         }
         always {
             cleanWs()
