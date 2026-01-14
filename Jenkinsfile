@@ -2,33 +2,64 @@ pipeline {
     agent any
 
     tools {
-        // We keep Maven because your log suggested 'maven-3.8.5' works
-        maven 'maven-3.8.5'
+        jdk 'jdk17'
+        maven 'maven'
     }
 
     options {
-        buildDiscarder(logRotator(numToKeepStr: '5'))
         timestamps()
+        timeout(time: 10, unit: 'MINUTES')   // Prevents hanging builds
     }
 
     stages {
+
+        stage('Checkout') {
+            steps {
+                checkout scm
+            }
+        }
+
         stage('Check Versions') {
             steps {
-                // This will show us what version is actually on the machine
-                sh 'java -version'
-                sh 'mvn -version'
+                sh '''
+                    java -version
+                    mvn -version
+                '''
             }
         }
 
         stage('Build & Test') {
             steps {
-                sh 'mvn -B clean install'
+                sh '''
+                    mvn -B clean test \
+                      -DforkCount=1 \
+                      -DreuseForks=false \
+                      -Dsurefire.printSummary=true
+                '''
             }
             post {
                 always {
-                    junit '**/target/surefire-reports/*.xml'
+                    junit 'target/surefire-reports/*.xml'
                 }
             }
+        }
+
+        stage('Package') {
+            steps {
+                sh 'mvn -B package -DskipTests'
+            }
+        }
+    }
+
+    post {
+        success {
+            echo '✅ Build succeeded'
+        }
+        failure {
+            echo '❌ Build failed'
+        }
+        always {
+            cleanWs()
         }
     }
 }
