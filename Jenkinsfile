@@ -1,4 +1,4 @@
-pipeline   {
+pipeline {
     agent any
 
     stages {
@@ -8,20 +8,26 @@ pipeline   {
                 sh 'mvn clean package'
             }
         }
+
         stage('Test') {
             steps {
                 echo 'Testing...'
                 sh 'mvn test'
             }
-        }stage('SonarQube Analysis') {
+        }
+
+        stage('SonarQube Analysis') {
             steps {
-                echo 'SOnar Qube'
+                echo 'SonarQube'
             }
-        }stage('push to Artifactory') {
+        }
+
+        stage('Push to Artifactory') {
             steps {
                 echo 'Pushing to Artifactory'
             }
         }
+
         stage('Deploy to QA') {
             steps {
                 echo 'Deploy to QA'
