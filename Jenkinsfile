@@ -4,20 +4,27 @@ pipeline   {
     stages {
         stage('Build') {
             steps {
-                echo 'Building...'
-                // Add build steps here
+                echo 'Build'
+                sh 'mvn clean package'
             }
         }
         stage('Test') {
             steps {
                 echo 'Testing...'
-                // Add test steps here
+                sh 'mvn test'
+            }
+        }stage('SonarQube Analysis') {
+            steps {
+                echo 'SOnar Qube'
+            }
+        }stage('push to Artifactory') {
+            steps {
+                echo 'Pushing to Artifactory'
             }
         }
-        stage('Deploy') {
+        stage('Deploy to QA') {
             steps {
-                echo 'Deploying...'
-                // Add deploy steps here
+                echo 'Deploy to QA'
             }
         }
     }
