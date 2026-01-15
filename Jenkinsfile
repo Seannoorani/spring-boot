@@ -1,36 +1,51 @@
 pipeline {
     agent any
 
-    stages {
-        stage('Build') {
-            steps {
-                echo 'Build'
-                sh 'mvn clean package'
-            }
-        }
+    options {
+        timeout(time: 30, unit: 'MINUTES')
+        disableConcurrentBuilds()
+        timestamps()
+    }
 
-        stage('Test') {
+    stages {
+
+        stage('Build & Test') {
             steps {
-                echo 'Testing...'
-                sh 'mvn test'
+                echo 'Building and running tests'
+                sh 'mvn clean verify'
             }
         }
 
         stage('SonarQube Analysis') {
+            when {
+                branch 'Buggfix'
+            }
             steps {
-                echo 'SonarQube'
+                echo 'Running SonarQube analysis'
+                withSonarQubeEnv('SonarQube') {
+                    sh 'mvn sonar:sonar'
+                }
+            }
+        }
+
+        stage('Archive Artifact') {
+            steps {
+                echo 'Archiving build artifact'
+                archiveArtifacts artifacts: 'target/*.jar', fingerprint: true
             }
         }
 
         stage('Push to Artifactory') {
             steps {
                 echo 'Pushing to Artifactory'
+                // sh 'mvn deploy'
             }
         }
 
         stage('Deploy to QA') {
             steps {
-                echo 'Deploy to QA'
+                echo 'Deploying to QA'
+                // sh './deploy-qa.sh'
             }
         }
     }
@@ -39,8 +54,14 @@ pipeline {
         success {
             echo 'Pipeline completed successfully!'
         }
+
         failure {
             echo 'Pipeline failed.'
         }
+
+        always {
+            cleanWs()
+        }
     }
 }
+
