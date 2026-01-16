@@ -1,6 +1,6 @@
 pipeline {
-    agent any
-
+    agent any{label'java'}
+    
     options {
         timeout(time: 30, unit: 'MINUTES')
         disableConcurrentBuilds()
