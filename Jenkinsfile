@@ -7,32 +7,12 @@ pipeline {
         timestamps()
     }
 
-    parameters {
-        booleanParam(
-            name: 'RUN_SONAR',
-            defaultValue: false,
-            description: 'Run SonarQube analysis (requires SonarQube Jenkins plugin)'
-        )
-    }
-
     stages {
 
         stage('Build & Test') {
             steps {
                 echo 'Building application and running tests'
                 sh 'mvn clean verify'
-            }
-        }
-
-        stage('SonarQube Analysis') {
-            when {
-                expression { params.RUN_SONAR }
-            }
-            steps {
-                echo 'Running SonarQube analysis'
-                withSonarQubeEnv('SonarQube') {
-                    sh 'mvn sonar:sonar'
-                }
             }
         }
 
