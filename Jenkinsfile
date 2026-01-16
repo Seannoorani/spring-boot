@@ -1,60 +1,29 @@
 pipeline {
-    agent any{label'java'}
-    
-    options {
-        timeout(time: 30, unit: 'MINUTES')
-        disableConcurrentBuilds()
-        timestamps()
+    agent {
+        label 'java'
     }
 
     stages {
-
-        stage('Build & Test') {
+        stage('Checkout') {
             steps {
-                echo 'Building application and running tests'
-                sh 'mvn clean verify'
+                echo 'Checking out code from GitHub...'
             }
         }
-
-        stage('Archive Artifact') {
+        stage('Build') {
             steps {
-                echo 'Archiving JAR artifact'
-                archiveArtifacts artifacts: 'target/*.jar', fingerprint: true
+                echo 'Building application...'
+                // Example: sh './mvnw clean package' or 'sh 'javac Main.java'
             }
         }
-
-        stage('sonarQube Analysis') {
+        stage('Test') {
             steps {
-                echo 'sonarQube'
-                // sh 'mvn sonar:sonar'
+                echo 'Running tests...'
             }
         }
-        stage('Push to Artifactory') {
+        stage('Deploy') {
             steps {
-                echo 'Pushing artifact to Artifactory'
-                // sh 'mvn deploy'
+                echo 'Deploying application...'
             }
-        }
-
-        stage('Deploy to QA') {
-            steps {
-                echo 'Deploying application to QA'
-                // sh './deploy-qa.sh'
-            }
-        }
-    }
-
-    post {
-        success {
-            echo 'Pipeline completed successfully!'
-        }
-
-        failure {
-            echo 'Pipeline failed.'
-        }
-
-        always {
-            cleanWs()
         }
     }
 }
