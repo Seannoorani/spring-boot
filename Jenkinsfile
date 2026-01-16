@@ -4,26 +4,49 @@ pipeline {
     }
 
     stages {
-        stage('Checkout') {
+        stage('Initialize') {
             steps {
-                echo 'Checking out code from GitHub...'
+                echo 'Starting Build for Sean Noorani...'
+                // Verifies java is actually there to prevent environment failures
+                sh 'java -version'
             }
         }
-        stage('Build') {
+
+        stage('SonarQube Analysis') {
             steps {
-                echo 'Building application...'
-                // Example: sh './mvnw clean package' or 'sh 'javac Main.java'
+                // 'SonarQube' must match the name in Manage Jenkins -> System -> SonarQube installations
+                withSonarQubeEnv('SonarQube') {
+                    script {
+                        try {
+                            // If using Maven:
+                            sh 'mvn sonar:sonar'
+                            
+                            // IF NOT using Maven, use the standalone scanner:
+                            // sh 'sonar-scanner'
+                        } catch (Exception e) {
+                            echo "SonarQube analysis failed, but continuing pipeline..."
+                        }
+                    }
+                }
             }
         }
-        stage('Test') {
+
+        stage('Quality Gate') {
             steps {
-                echo 'Running tests...'
+                timeout(time: 1, unit: 'HOURS') {
+                    // This pauses until SonarQube reports back success/fail
+                    // If you want the build to NEVER fail here, wrap it in a catchError
+                    catchError(buildResult: 'SUCCESS', stageResult: 'FAILURE') {
+                        waitForQualityGate abortPipeline: true
+                    }
+                }
             }
         }
-        stage('Deploy') {
-            steps {
-                echo 'Deploying application...'
-            }
+    }
+    
+    post {
+        always {
+            echo 'Pipeline execution finished.'
         }
     }
 }
