@@ -7,18 +7,26 @@ pipeline {
         timestamps()
     }
 
+    parameters {
+        booleanParam(
+            name: 'RUN_SONAR',
+            defaultValue: false,
+            description: 'Run SonarQube analysis (requires SonarQube Jenkins plugin)'
+        )
+    }
+
     stages {
 
         stage('Build & Test') {
             steps {
-                echo 'Building and running tests'
+                echo 'Building application and running tests'
                 sh 'mvn clean verify'
             }
         }
 
         stage('SonarQube Analysis') {
             when {
-                branch 'Buggfix'
+                expression { params.RUN_SONAR }
             }
             steps {
                 echo 'Running SonarQube analysis'
@@ -30,21 +38,21 @@ pipeline {
 
         stage('Archive Artifact') {
             steps {
-                echo 'Archiving build artifact'
+                echo 'Archiving JAR artifact'
                 archiveArtifacts artifacts: 'target/*.jar', fingerprint: true
             }
         }
 
         stage('Push to Artifactory') {
             steps {
-                echo 'Pushing to Artifactory'
+                echo 'Pushing artifact to Artifactory'
                 // sh 'mvn deploy'
             }
         }
 
         stage('Deploy to QA') {
             steps {
-                echo 'Deploying to QA'
+                echo 'Deploying application to QA'
                 // sh './deploy-qa.sh'
             }
         }
@@ -61,7 +69,3 @@ pipeline {
 
         always {
             cleanWs()
-        }
-    }
-}
-
