@@ -23,6 +23,12 @@ pipeline {
             }
         }
 
+        stage('sonarQube Analysis') {
+            steps {
+                echo 'sonarQube'
+                // sh 'mvn sonar:sonar'
+            }
+        }
         stage('Push to Artifactory') {
             steps {
                 echo 'Pushing artifact to Artifactory'
