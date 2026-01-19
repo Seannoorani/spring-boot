@@ -4,7 +4,6 @@ pipeline {
     environment {
         AWS_REGION = 'us-east-1'
         LAMBDA_NAME = 'my-java-lambda'
-        JAR_FILE = 'lambda.jar'
     }
 
     options {
@@ -47,10 +46,14 @@ pipeline {
                      credentialsId: 'aws-jenkins-creds']
                 ]) {
                     sh '''
+                        JAR_FILE=$(ls target/*.jar | grep -v original | head -n 1)
+
+                        echo "Deploying $JAR_FILE"
+
                         aws lambda update-function-code \
                           --function-name $LAMBDA_NAME \
                           --region $AWS_REGION \
-                          --zip-file fileb://target/$JAR_FILE
+                          --zip-file fileb://$JAR_FILE
                     '''
                 }
             }
