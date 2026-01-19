@@ -1,52 +1,76 @@
 pipeline {
-    agent {
-        label 'java'
+    agent any
+
+    tools {
+        // Jenkins global tool configuration
+        jdk 'jdk17'
+        maven 'maven3'
+    }
+
+    environment {
+        AWS_REGION = 'us-east-1'
+        LAMBDA_FUNCTION_NAME = 'my-java-lambda'
+        MAVEN_OPTS = '-Dmaven.test.failure.ignore=false'
     }
 
     stages {
-        stage('Initialize') {
+
+        stage('Checkout') {
             steps {
-                echo 'Starting Build for Sean Noorani...'
-                // Verifies java is actually there to prevent environment failures
-                sh 'java -version'
+                checkout scm
             }
         }
 
-        stage('SonarQube Analysis') {
+        stage('Build') {
             steps {
-                // 'SonarQube' must match the name in Manage Jenkins -> System -> SonarQube installations
-                withSonarQubeEnv('SonarQube') {
-                    script {
-                        try {
-                            // If using Maven:
-                            sh 'mvn sonar:sonar'
-                            
-                            // IF NOT using Maven, use the standalone scanner:
-                            // sh 'sonar-scanner'
-                        } catch (Exception e) {
-                            echo "SonarQube analysis failed, but continuing pipeline..."
-                        }
-                    }
+                sh 'mvn clean compile'
+            }
+        }
+
+        stage('Unit Tests') {
+            steps {
+                sh 'mvn test'
+            }
+            post {
+                always {
+                    junit 'target/surefire-reports/*.xml'
                 }
             }
         }
 
-        stage('Quality Gate') {
+        stage('Package Lambda') {
             steps {
-                timeout(time: 1, unit: 'HOURS') {
-                    // This pauses until SonarQube reports back success/fail
-                    // If you want the build to NEVER fail here, wrap it in a catchError
-                    catchError(buildResult: 'SUCCESS', stageResult: 'FAILURE') {
-                        waitForQualityGate abortPipeline: true
-                    }
+                // Creates a fat JAR using maven-shade or similar plugin
+                sh 'mvn package -DskipTests'
+            }
+        }
+
+        stage('Deploy to AWS Lambda') {
+            when {
+                branch 'main'
+            }
+            steps {
+                withCredentials([
+                    [$class: 'AmazonWebServicesCredentialsBinding',
+                     credentialsId: 'aws-jenkins-creds']
+                ]) {
+                    sh '''
+                      aws lambda update-function-code \
+                        --function-name $LAMBDA_FUNCTION_NAME \
+                        --region $AWS_REGION \
+                        --zip-file fileb://target/my-lambda.jar
+                    '''
                 }
             }
         }
     }
-    
+
     post {
-        always {
-            echo 'Pipeline execution finished.'
+        success {
+            echo '✅ Lambda deployment successful'
+        }
+        failure {
+            echo '❌ Pipeline failed'
         }
     }
 }
