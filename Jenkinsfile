@@ -2,15 +2,19 @@ pipeline {
     agent any
 
     tools {
-        // Jenkins global tool configuration
         jdk 'jdk17'
         maven 'maven3'
     }
 
     environment {
         AWS_REGION = 'us-east-1'
-        LAMBDA_FUNCTION_NAME = 'my-java-lambda'
-        MAVEN_OPTS = '-Dmaven.test.failure.ignore=false'
+        LAMBDA_NAME = 'my-java-lambda'
+        JAR_FILE = 'lambda.jar'
+    }
+
+    options {
+        timestamps()
+        disableConcurrentBuilds()
     }
 
     stages {
@@ -23,11 +27,11 @@ pipeline {
 
         stage('Build') {
             steps {
-                sh 'mvn clean compile'
+                sh 'mvn clean package'
             }
         }
 
-        stage('Unit Tests') {
+        stage('Test') {
             steps {
                 sh 'mvn test'
             }
@@ -38,14 +42,7 @@ pipeline {
             }
         }
 
-        stage('Package Lambda') {
-            steps {
-                // Creates a fat JAR using maven-shade or similar plugin
-                sh 'mvn package -DskipTests'
-            }
-        }
-
-        stage('Deploy to AWS Lambda') {
+        stage('Deploy') {
             when {
                 branch 'main'
             }
@@ -54,12 +51,12 @@ pipeline {
                     [$class: 'AmazonWebServicesCredentialsBinding',
                      credentialsId: 'aws-jenkins-creds']
                 ]) {
-                    sh '''
-                      aws lambda update-function-code \
-                        --function-name $LAMBDA_FUNCTION_NAME \
-                        --region $AWS_REGION \
-                        --zip-file fileb://target/my-lambda.jar
-                    '''
+                    sh """
+                        aws lambda update-function-code \
+                          --function-name ${LAMBDA_NAME} \
+                          --region ${AWS_REGION} \
+                          --zip-file fileb://target/${JAR_FILE}
+                    """
                 }
             }
         }
@@ -67,10 +64,13 @@ pipeline {
 
     post {
         success {
-            echo '✅ Lambda deployment successful'
+            echo 'Build and deployment completed successfully'
         }
         failure {
-            echo '❌ Pipeline failed'
+            echo 'Build failed'
+        }
+        always {
+            cleanWs()
         }
     }
 }
