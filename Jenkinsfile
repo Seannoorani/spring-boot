@@ -1,9 +1,9 @@
 pipeline {
-    agent any
-
-    tools {
-        jdk 'jdk17'
-        maven 'maven3'
+    agent {
+        docker {
+            image 'maven:3.9.6-eclipse-temurin-17'
+            args '-v /var/run/docker.sock:/var/run/docker.sock'
+        }
     }
 
     environment {
@@ -18,6 +18,10 @@ pipeline {
     }
 
     stages {
+
+        /* =====================
+           CI
+           ===================== */
 
         stage('Checkout') {
             steps {
@@ -42,7 +46,11 @@ pipeline {
             }
         }
 
-        stage('Deploy') {
+        /* =====================
+           CD
+           ===================== */
+
+        stage('Deploy to Lambda') {
             when {
                 branch 'main'
             }
@@ -51,12 +59,12 @@ pipeline {
                     [$class: 'AmazonWebServicesCredentialsBinding',
                      credentialsId: 'aws-jenkins-creds']
                 ]) {
-                    sh """
+                    sh '''
                         aws lambda update-function-code \
-                          --function-name ${LAMBDA_NAME} \
-                          --region ${AWS_REGION} \
-                          --zip-file fileb://target/${JAR_FILE}
-                    """
+                          --function-name $LAMBDA_NAME \
+                          --region $AWS_REGION \
+                          --zip-file fileb://target/$JAR_FILE
+                    '''
                 }
             }
         }
@@ -64,13 +72,14 @@ pipeline {
 
     post {
         success {
-            echo 'Build and deployment completed successfully'
+            echo '✅ CI/CD pipeline completed successfully'
         }
         failure {
-            echo 'Build failed'
+            echo '❌ Pipeline failed'
         }
         always {
             cleanWs()
         }
     }
 }
+
