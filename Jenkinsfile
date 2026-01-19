@@ -1,10 +1,5 @@
 pipeline {
-    agent {
-        docker {
-            image 'maven:3.9.6-eclipse-temurin-17'
-            args '-v /var/run/docker.sock:/var/run/docker.sock'
-        }
-    }
+    agent any
 
     environment {
         AWS_REGION = 'us-east-1'
@@ -18,10 +13,6 @@ pipeline {
     }
 
     stages {
-
-        /* =====================
-           CI
-           ===================== */
 
         stage('Checkout') {
             steps {
@@ -46,11 +37,7 @@ pipeline {
             }
         }
 
-        /* =====================
-           CD
-           ===================== */
-
-        stage('Deploy to Lambda') {
+        stage('Deploy') {
             when {
                 branch 'main'
             }
@@ -71,15 +58,8 @@ pipeline {
     }
 
     post {
-        success {
-            echo '✅ CI/CD pipeline completed successfully'
-        }
-        failure {
-            echo '❌ Pipeline failed'
-        }
         always {
             cleanWs()
         }
     }
 }
-
