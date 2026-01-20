@@ -1,79 +1,78 @@
 pipeline {
     agent any
 
-    parameters {
-        booleanParam(name: 'SKIP_TESTS', defaultValue: false, description: 'Check to skip Maven tests')
+    options {
+        disableConcurrentBuilds()
+        ansiColor('xterm')
+        timestamps()
     }
 
     environment {
-        AWS_REGION  = 'us-east-1'
-        LAMBDA_NAME = 'my-java-lambda'
-        // Updated to match your Maven log: [Building hello-java 0.1.0]
-        JAR_FILE    = 'hello-java-0.1.0.jar'
-        AWS_CREDS   = credentials('aws-jenkins-creds')
-    }
-
-    options {
-        timestamps()
-        disableConcurrentBuilds()
-        timeout(time: 1, unit: 'HOURS') // Prevents the "infinite hang" you saw
+        // Ensure these IDs match exactly what is in your Jenkins Credentials store
+        AWS_ACCESS_KEY_ID     = credentials('aws-access-key')
+        AWS_SECRET_ACCESS_KEY = credentials('aws-secret-key')
+        AWS_DEFAULT_REGION    = 'us-east-1' 
     }
 
     stages {
-        stage('Checkout') {
+        stage('Build Lambda Package') {
             steps {
-                checkout scm
+                echo 'Building...'
+                sh 'mvn clean install'
             }
         }
 
-        stage('Build') {
+        stage('Test') {
             steps {
-                // If SKIP_TESTS is true, we pass the skip flag to Maven
+                echo 'Testing...'
+                sh 'mvn test'
+            }
+        }
+
+        stage('Push to Artifactory') {
+            steps {
+                echo 'Pushing to artifactory...'
+                // Add your upload logic here (e.g., mvn deploy)
+            }
+        }
+
+        stage('Deploy to QA') {
+            steps {
+                echo 'Deploying to QA...'
+                sh 'zip -g Noorany-0.0.1.zip **/target'
+                
+                // Using the environment variables directly is cleaner than 'aws configure'
+                sh 'aws s3 cp Noorany-0.0.1.zip s3://noorany-lambda-deployments/Noorany-0.0.1.zip'
+                sh 'aws lambda update-function-code --function-name test --zip-file fileb://Noorany-0.0.1.zip'
+            }
+        }
+
+        stage('Release to Prod Approval') {
+            // Note: input should usually happen before the actual deployment stage
+            steps {
                 script {
-                    def skipFlag = params.SKIP_TESTS ? '-DskipTests' : ''
-                    sh "mvn clean package ${skipFlag}"
+                    if (env.BRANCH_NAME != 'main') {
+                        input message: 'Proceed for Prod Deployment?', ok: 'Deploy'
+                    }
                 }
             }
         }
 
-        stage('Verify Artifact') {
+        stage('Deploy to Production') {
             steps {
-                // Defensive check: ensure the file actually exists before trying to deploy
-                sh "ls -lh target/${JAR_FILE}"
-            }
-        }
-
-        stage('Deploy') {
-            when {
-                anyOf {
-                    branch 'main'
-                    branch 'Buggfix' // Added this so you can test deployment now
-                }
-            }
-            steps {
-                withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', 
-                                  credentialsId: 'aws-jenkins-creds']]) {
-                    echo "Deploying ${JAR_FILE} to Lambda: ${LAMBDA_NAME}..."
-                    sh '''
-                        aws lambda update-function-code \
-                            --function-name ${LAMBDA_NAME} \
-                            --region ${AWS_REGION} \
-                            --zip-file fileb://target/${JAR_FILE}
-                    '''
-                }
+                echo 'Deploying to Production...'
+                sh 'aws s3 cp Noorany-0.0.1.zip s3://noorany-lambda-deployments/Noorany-0.0.1.zip'
+                sh 'aws lambda update-function-code --function-name prod --zip-file fileb://Noorany-0.0.1.zip'
             }
         }
     }
 
     post {
-        success {
-            echo 'Pipeline completed successfully!'
-        }
         failure {
-            echo 'Pipeline failed. Check the console output for errors.'
+            echo 'Pipeline failed.'
         }
-        always {
-            cleanWs()
+        success {
+            echo 'Pipeline completed successfully.'
         }
     }
 }
