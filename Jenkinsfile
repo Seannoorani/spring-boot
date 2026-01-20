@@ -3,12 +3,11 @@ pipeline {
 
     options {
         disableConcurrentBuilds()
-        ansiColor('xterm')
         timestamps()
+        // Removed ansiColor('xterm') because the plugin is missing/unsupported
     }
 
     environment {
-        // AWS CLI uses these variable names automatically for authentication
         AWS_ACCESS_KEY_ID     = credentials('aws-access-key')
         AWS_SECRET_ACCESS_KEY = credentials('aws-secret-key')
         AWS_DEFAULT_REGION    = 'us-east-1' 
@@ -17,8 +16,7 @@ pipeline {
     stages {
         stage('Build & Test') {
             steps {
-                echo 'Building and Testing with System Maven...'
-                // Using 'mvn' directly assumes it is installed on the Jenkins server path
+                echo 'Building and Testing...'
                 sh 'mvn clean install'
                 sh 'mvn test'
             }
@@ -27,14 +25,13 @@ pipeline {
         stage('Package') {
             steps {
                 echo 'Creating Lambda Package...'
-                // This creates the zip file for deployment
                 sh 'zip -g Noorany-0.0.1.zip **/target'
             }
         }
 
         stage('Deploy to QA') {
             steps {
-                echo 'Deploying to QA environment...'
+                echo 'Deploying to QA...'
                 sh 'aws s3 cp Noorany-0.0.1.zip s3://noorany-lambda-deployments/Noorany-0.0.1.zip'
                 sh 'aws lambda update-function-code --function-name test --zip-file fileb://Noorany-0.0.1.zip'
             }
@@ -43,10 +40,8 @@ pipeline {
         stage('Production Approval') {
             steps {
                 script {
-                    // Only ask for permission if we aren't on the main branch
-                    // (Or swap to 'if (env.BRANCH_NAME == "main")' if you only want prod from main)
                     if (env.BRANCH_NAME != 'main') {
-                        input message: 'Proceed to Production?', ok: 'Deploy Now'
+                        input message: 'Proceed to Production?', ok: 'Deploy'
                     }
                 }
             }
@@ -54,7 +49,7 @@ pipeline {
 
         stage('Deploy to Production') {
             steps {
-                echo 'Deploying to Production environment...'
+                echo 'Deploying to Production...'
                 sh 'aws s3 cp Noorany-0.0.1.zip s3://noorany-lambda-deployments/Noorany-0.0.1.zip'
                 sh 'aws lambda update-function-code --function-name prod --zip-file fileb://Noorany-0.0.1.zip'
             }
@@ -62,14 +57,11 @@ pipeline {
     }
 
     post {
-        always {
-            echo 'Cleaning up workspace...'
-        }
         success {
-            echo 'Deployment complete!'
+            echo 'Pipeline completed successfully.'
         }
         failure {
-            echo 'Build failed. Please check the console output above.'
+            echo 'Pipeline failed.'
         }
     }
 }
