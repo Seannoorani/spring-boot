@@ -4,13 +4,11 @@ pipeline {
     options {
         disableConcurrentBuilds()
         timestamps()
-        // Removed ansiColor('xterm') because the plugin is missing/unsupported
     }
 
+    // Removed the credentials() calls that were causing the error
     environment {
-        AWS_ACCESS_KEY_ID     = credentials('aws-access-key')
-        AWS_SECRET_ACCESS_KEY = credentials('aws-secret-key')
-        AWS_DEFAULT_REGION    = 'us-east-1' 
+        AWS_DEFAULT_REGION = 'us-east-1' 
     }
 
     stages {
@@ -32,6 +30,7 @@ pipeline {
         stage('Deploy to QA') {
             steps {
                 echo 'Deploying to QA...'
+                // These commands will now rely on the Jenkins Server's IAM Role
                 sh 'aws s3 cp Noorany-0.0.1.zip s3://noorany-lambda-deployments/Noorany-0.0.1.zip'
                 sh 'aws lambda update-function-code --function-name test --zip-file fileb://Noorany-0.0.1.zip'
             }
