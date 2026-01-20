@@ -8,51 +8,45 @@ pipeline {
     }
 
     environment {
-        // Ensure these IDs match exactly what is in your Jenkins Credentials store
+        // AWS CLI uses these variable names automatically for authentication
         AWS_ACCESS_KEY_ID     = credentials('aws-access-key')
         AWS_SECRET_ACCESS_KEY = credentials('aws-secret-key')
         AWS_DEFAULT_REGION    = 'us-east-1' 
     }
 
     stages {
-        stage('Build Lambda Package') {
+        stage('Build & Test') {
             steps {
-                echo 'Building...'
+                echo 'Building and Testing with System Maven...'
+                // Using 'mvn' directly assumes it is installed on the Jenkins server path
                 sh 'mvn clean install'
-            }
-        }
-
-        stage('Test') {
-            steps {
-                echo 'Testing...'
                 sh 'mvn test'
             }
         }
 
-        stage('Push to Artifactory') {
+        stage('Package') {
             steps {
-                echo 'Pushing to artifactory...'
-                // Add your upload logic here (e.g., mvn deploy)
+                echo 'Creating Lambda Package...'
+                // This creates the zip file for deployment
+                sh 'zip -g Noorany-0.0.1.zip **/target'
             }
         }
 
         stage('Deploy to QA') {
             steps {
-                echo 'Deploying to QA...'
-                sh 'zip -g Noorany-0.0.1.zip **/target'
-                
-                // Using the environment variables directly is cleaner than 'aws configure'
+                echo 'Deploying to QA environment...'
                 sh 'aws s3 cp Noorany-0.0.1.zip s3://noorany-lambda-deployments/Noorany-0.0.1.zip'
                 sh 'aws lambda update-function-code --function-name test --zip-file fileb://Noorany-0.0.1.zip'
             }
         }
 
-        stage('Release to Prod Approval') {
-            // Note: input should usually happen before the actual deployment stage
+        stage('Production Approval') {
             steps {
                 script {
+                    // Only ask for permission if we aren't on the main branch
+                    // (Or swap to 'if (env.BRANCH_NAME == "main")' if you only want prod from main)
                     if (env.BRANCH_NAME != 'main') {
-                        input message: 'Proceed for Prod Deployment?', ok: 'Deploy'
+                        input message: 'Proceed to Production?', ok: 'Deploy Now'
                     }
                 }
             }
@@ -60,7 +54,7 @@ pipeline {
 
         stage('Deploy to Production') {
             steps {
-                echo 'Deploying to Production...'
+                echo 'Deploying to Production environment...'
                 sh 'aws s3 cp Noorany-0.0.1.zip s3://noorany-lambda-deployments/Noorany-0.0.1.zip'
                 sh 'aws lambda update-function-code --function-name prod --zip-file fileb://Noorany-0.0.1.zip'
             }
@@ -68,11 +62,14 @@ pipeline {
     }
 
     post {
-        failure {
-            echo 'Pipeline failed.'
+        always {
+            echo 'Cleaning up workspace...'
         }
         success {
-            echo 'Pipeline completed successfully.'
+            echo 'Deployment complete!'
+        }
+        failure {
+            echo 'Build failed. Please check the console output above.'
         }
     }
 }
